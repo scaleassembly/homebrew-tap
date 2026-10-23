@@ -25,18 +25,21 @@ cask "zshot" do
   binary "#{Dir.home}/Library/Application Support/ZShot/zshot"
 
   # ditto (rather than the copy step) keeps the old preflight's semantics and
-  # preserves bundle metadata. Run steps are sandboxed, so the target dir is
-  # declared writable and the copies are made relative to it via chdir.
+  # preserves bundle metadata. Run steps execute in a sandbox whose HOME is a
+  # throwaway directory, and neither "~" nor chdir can name the real home
+  # there — only base: :home (target_base:) resolves to it. So ditto stages
+  # the copies inside the staged path, then move (a same-volume rename, which
+  # keeps ditto's metadata) puts them in Application Support, replacing any
+  # copy from a previous install.
   preflight_steps do
     mkdir_p "Library/Application Support/ZShot", base: :home
     run "/usr/bin/ditto",
-        args:           ["--noqtn", "{{staged_path}}/ZShot.app/Contents/Resources/zshot", "zshot"],
-        chdir:          "~/Library/Application Support/ZShot",
-        writable_paths: ["~/Library/Application Support/ZShot"]
+        args: ["--noqtn", "{{staged_path}}/ZShot.app/Contents/Resources/zshot", "{{staged_path}}/cli/zshot"]
     run "/usr/bin/ditto",
-        args:           ["--noqtn", "{{staged_path}}/ZShot.app/Contents/Resources/zshot_app.app", "zshot_app.app"],
-        chdir:          "~/Library/Application Support/ZShot",
-        writable_paths: ["~/Library/Application Support/ZShot"]
+        args: ["--noqtn", "{{staged_path}}/ZShot.app/Contents/Resources/zshot_app.app",
+               "{{staged_path}}/cli/zshot_app.app"]
+    move "cli/zshot", "Library/Application Support/ZShot/zshot", target_base: :home
+    move "cli/zshot_app.app", "Library/Application Support/ZShot/zshot_app.app", target_base: :home
   end
 
   zap trash: [
