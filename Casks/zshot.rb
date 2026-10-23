@@ -20,18 +20,23 @@ cask "zshot" do
   app "ZShot.app"
   # The CLI is a wrapper script that resolves symlinks to its physical
   # location and expects zshot_app.app as a sibling, so the link target is
-  # the Application Support copy made by preflight below (mirroring what the
-  # app's own CLIDownloadManager does on first launch).
+  # the Application Support copy made by preflight_steps below (mirroring what
+  # the app's own CLIDownloadManager does on first launch).
   binary "#{Dir.home}/Library/Application Support/ZShot/zshot"
 
-  preflight do
-    support_dir = "#{Dir.home}/Library/Application Support/ZShot"
-    resources = "#{staged_path}/ZShot.app/Contents/Resources"
-    FileUtils.mkdir_p support_dir
-    system_command "/usr/bin/ditto",
-                   args: ["--noqtn", "#{resources}/zshot", "#{support_dir}/zshot"]
-    system_command "/usr/bin/ditto",
-                   args: ["--noqtn", "#{resources}/zshot_app.app", "#{support_dir}/zshot_app.app"]
+  # ditto (rather than the copy step) keeps the old preflight's semantics and
+  # preserves bundle metadata. Run steps are sandboxed, so the target dir is
+  # declared writable and the copies are made relative to it via chdir.
+  preflight_steps do
+    mkdir_p "Library/Application Support/ZShot", base: :home
+    run "/usr/bin/ditto",
+        args:           ["--noqtn", "{{staged_path}}/ZShot.app/Contents/Resources/zshot", "zshot"],
+        chdir:          "~/Library/Application Support/ZShot",
+        writable_paths: ["~/Library/Application Support/ZShot"]
+    run "/usr/bin/ditto",
+        args:           ["--noqtn", "{{staged_path}}/ZShot.app/Contents/Resources/zshot_app.app", "zshot_app.app"],
+        chdir:          "~/Library/Application Support/ZShot",
+        writable_paths: ["~/Library/Application Support/ZShot"]
   end
 
   zap trash: [
